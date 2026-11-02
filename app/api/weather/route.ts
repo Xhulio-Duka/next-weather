@@ -16,8 +16,18 @@ export async function GET(request: Request) {
     contentType: "json",
   })
 
-  const response = await fetch(`https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(location)}?${params}`, { cache: "no-store" })
-  const data = await response.json()
-  if (!response.ok) return NextResponse.json({ error: data?.message || "We could not find that location." }, { status: response.status })
-  return NextResponse.json(data)
+  try {
+    const response = await fetch(`https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(location)}?${params}`, { cache: "no-store" })
+    const data = await response.json().catch(() => null)
+    if (!response.ok) {
+      const message = typeof data?.message === "string" ? data.message : "We could not find that location."
+      return NextResponse.json({ error: message }, { status: response.status })
+    }
+    if (!data?.currentConditions || !Array.isArray(data.days)) {
+      return NextResponse.json({ error: "Weather data was incomplete." }, { status: 502 })
+    }
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json({ error: "Weather service is unavailable." }, { status: 502 })
+  }
 }
